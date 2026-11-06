@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EcoSegnala 2026 - Monitoraggio Micro-Discariche</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- Chart.js per la Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS per Export Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- html2canvas per esportazione Attestato in JPEG -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF per la generazione di report PDF istituzionali -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card-hover: #334155;
+            --accent: #10b981;
+            --accent-hover: #059669;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --status-segnalato: #f97316;
+            --status-programmato: #eab308;
+            --status-pulito: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding-bottom: 70px;
+        }
+
+        header {
+            background-color: var(--bg-card);
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-logo {
+            background: linear-gradient(135deg, #10b981, #059669);
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+        }
+
+        .brand-title h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            line-height: 1.1;
+        }
+
+        .brand-title span {
+            font-size: 0.75rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .author-badge {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-icon-header {
+            background: var(--bg-card-hover);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        main {
+            flex: 1;
+            padding: 16px;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .impact-banner {
+            background: linear-gradient(135deg, #064e3b, #047857);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 12px rgba(4, 120, 87, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .impact-info h3 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #a7f3d0;
+        }
+
+        .impact-info .val {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin: 2px 0;
+        }
+
+        .impact-info .sub {
+            font-size: 0.75rem;
+            color: #d1fae5;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 3px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 8px 4px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .view-section {
+            display: none;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-card-hover);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+
+        .gps-status-box {
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 6px;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .gps-coords {
+            font-family: monospace;
+            color: var(--accent);
+            font-size: 0.85rem;
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .preview-box {
+            width: 100%;
+            height: 160px;
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            background: #000;
+        }
+
+        .preview-box img, .preview-box video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background-color: #000;
+        }
+
+        #map-container {
+            height: 380px;
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 220px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .list-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .badge-status {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-segnalata { background: rgba(249, 115, 22, 0.2); color: #f97316; border: 1px solid #f97316; }
+        .badge-programmata { background: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid #eab308; }
+        .badge-pulito { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
+
+        .item-photos {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .item-photo-box {
+            flex: 1;
+            height: 110px;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            background: #000;
+        }
+
+        .item-photo-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background-color: #000;
+        }
+
+        .photo-tag {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            background: rgba(0,0,0,0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            color: white;
+            font-weight: 600;
+        }
+
+        .export-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            margin-top: 10px;
+        }
+
+        .export-grid .btn {
+            padding: 8px 4px;
+            font-size: 0.72rem;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .export-grid .btn i {
+            font-size: 0.85rem;
+        }
+
+        .footer-license {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            padding: 16px;
+            margin-top: 20px;
+            border-top: 1px solid var(--border);
+            line-height: 1.4;
+        }
+
+        .footer-license a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+        }
+
+        .nav-bar-bottom {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            z-index: 1000;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            text-decoration: none;
+            gap: 4px;
+            cursor: pointer;
+        }
+
+        .nav-item.active {
+            color: var(--accent);
+        }
+
+        .nav-item i {
+            font-size: 1.2rem;
+        }
+
+        /* TEMPLATE ATTESTATO JPEG (Dimensioni fisse ottimizzate per html2canvas) */
+        #certificate-template {
+            display: none;
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 1123px;
+            height: 794px;
+            background: #fffdf5;
+            color: #1e293b;
+            padding: 50px 70px;
+            font-family: 'Georgia', 'Times New Roman', serif;
+            box-sizing: border-box;
+            border: 14px solid #047857;
+            outline: 4px double #d97706;
+            outline-offset: -10px;
+            text-align: center;
+        }
+
+        .cert-header {
+            margin-bottom: 20px;
+        }
+
+        .cert-badge {
+            font-size: 4.5rem;
+            color: #d97706;
+            margin-bottom: 8px;
+            line-height: 1;
+        }
+
+        .cert-title {
+            font-size: 2.6rem;
+            font-weight: bold;
+            color: #047857;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+        }
+
+        .cert-subtitle {
+            font-size: 1.2rem;
+            font-style: italic;
+            color: #475569;
+        }
+
+        .cert-body {
+            margin: 30px 0;
+            line-height: 1.6;
+        }
+
+        .cert-name {
+            font-size: 2.4rem;
+            font-weight: bold;
+            color: #0f172a;
+            border-bottom: 3px solid #d97706;
+            display: inline-block;
+            padding: 0 35px 4px 35px;
+            margin: 12px 0 18px 0;
+        }
+
+        .cert-text {
+            font-size: 1.15rem;
+            color: #334155;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .cert-impact-box {
+            background: #ecfdf5;
+            border: 2px dashed #10b981;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 25px auto;
+            max-width: 700px;
+        }
+
+        .cert-impact-val {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #047857;
+        }
+
+        .cert-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            font-size: 1rem;
+            color: #475569;
+            text-align: left;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 16px;
+            margin-top: 25px;
+        }
+
+        .cert-footer {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 0 10px;
+        }
+
+        .cert-signature {
+            text-align: center;
+            border-top: 1px solid #475569;
+            width: 280px;
+            padding-top: 6px;
+            font-size: 1rem;
+            color: #334155;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand-container">
+            <div class="brand-logo"><i class="fa-solid fa-leaf"></i></div>
+            <div class="brand-title">
+                <h1>EcoSegnala</h1>
+                <span>Rilevamento Micro-Discariche</span>
+                <div class="author-badge">Realizzato da <strong>Rosario Catania ed Elena Catania</strong></div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn-icon-header" onclick="openGuideModal()"><i class="fa-solid fa-circle-info"></i> Guida</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Banner Carbon Footprint Evitata -->
+        <div class="impact-banner">
+            <div class="impact-info">
+                <h3>CO₂e (equivalente) evitata con bonifiche</h3>
+                <div class="val" id="total-co2-saved">0.0 kg</div>
+                <div class="sub" id="tree-equivalent">Pari all'azione di 0 alberi/anno</div>
+            </div>
+            <div style="font-size: 2.2rem; color: #a7f3d0;"><i class="fa-solid fa-cloud-sun"></i></div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('new')"><i class="fa-solid fa-plus-circle"></i> Segnala</button>
+            <button class="tab-btn" onclick="switchTab('map')"><i class="fa-solid fa-map-location-dot"></i> Mappa</button>
+            <button class="tab-btn" onclick="switchTab('dashboard')"><i class="fa-solid fa-chart-pie"></i> Impatto</button>
+            <button class="tab-btn" onclick="switchTab('archive')"><i class="fa-solid fa-box-archive"></i> Archivio</button>
+        </div>
+
+        <!-- VIEW 1: NUOVA SEGNALAZIONE -->
+        <div id="view-new" class="view-section active">
+            <form id="report-form" onsubmit="saveReport(event)">
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-user"></i> Dati Segnalatore</div>
+                    <div class="form-group">
+                        <label>Nome e Cognome del Segnalatore</label>
+                        <input type="text" id="input-reporter" placeholder="Es. Mario Rossi" required>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-location-crosshairs"></i> Posizione & Data</div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Data Rilevamento</label>
+                            <input type="date" id="input-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Ora</label>
+                            <input type="time" id="input-time" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Coordinate GPS</label>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" class="btn btn-secondary" onclick="getLocation()" style="flex: 1;"><i class="fa-solid fa-satellite-dish"></i> Rileva GPS</button>
+                            <button type="button" class="btn btn-secondary" onclick="openMapPickerModal()" style="flex: 1;"><i class="fa-solid fa-map-pin"></i> Sulla Mappa</button>
+                        </div>
+                        <div class="gps-status-box">
+                            <span class="gps-coords" id="gps-coords-text">Lat: -- , Lng: --</span>
+                            <span id="gps-accuracy-text" style="color: var(--text-muted); font-size: 0.75rem;">GPS Non Rilevato</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Indirizzo / Località (Automatico o Manuale)</label>
+                        <input type="text" id="input-address" placeholder="Es. Via Roma km 4, Zona Industriale">
+                    </div>
+
+                    <div class="form-group" style="display:none;">
+                        <label>Comune</label>
+                        <input type="text" id="input-municipality" value="Non specificato">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-dumpster"></i> Dettagli Rifiuto & Impatto</div>
+
+                    <div class="form-group">
+                        <label>Tipologia Principale di Rifiuto</label>
+                        <select id="input-type" required onchange="updateImpactPreview()">
+                            <option value="plastica">Plastica / Polimeri (~6.0 kg CO₂e (equivalente)/kg)</option>
+                            <option value="vetro_lattine">Vetro e Lattine (~0.9 kg CO₂e (equivalente)/kg)</option>
+                            <option value="metalli">Metalli (~2.5 kg CO₂e (equivalente)/kg)</option>
+                            <option value="raee">RAEE / Elettronica (~12.0 kg CO₂e (equivalente)/kg)</option>
+                            <option value="pneumatici">Pneumatici / Gomma (~3.5 kg CO₂e (equivalente)/kg)</option>
+                            <option value="pericolosi">Rifiuti Pericolosi / Chimici (~8.0 kg CO₂e (equivalente)/kg)</option>
+                            <option value="inerti">Inerti / Edili (~0.15 kg CO₂e (equivalente)/kg)</option>
+                            <option value="ingombranti">Ingombranti / Legno (~1.8 kg CO₂e (equivalente)/kg)</option>
+                            <option value="organico">Organico / Umido Abbandonato (~0.8 kg CO₂e (equivalente)/kg)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Dimensione / Quantità Stimata</label>
+                            <select id="input-size" required onchange="updateImpactPreview()">
+                                <option value="small">Piccola (< 10 kg)</option>
+                                <option value="medium" selected>Media (10 - 50 kg)</option>
+                                <option value="large">Grande (50 - 200 kg)</option>
+                                <option value="maxi">Molto Grande (> 200 kg)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Impatto Potenziale Stimato</label>
+                            <input type="text" id="input-co2-preview" readonly value="~ 180 kg CO₂e (equivalente)" style="color: var(--accent); font-weight: bold;">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fotografia della Discarica (Prima)</label>
+                        <div class="camera-controls">
+                            <!-- Input File Galleria / Foto nativo -->
+                            <input type="file" id="input-photo" accept="image/*" style="display: none;" onchange="handleFileSelect(event, 'before')">
+                            
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('input-photo').click()"><i class="fa-solid fa-images"></i> Galleria / Scegli File</button>
+                            <button type="button" class="btn btn-secondary" onclick="startLiveCamera('before')"><i class="fa-solid fa-camera"></i> Fotocamera Live</button>
+                        </div>
+                        <div class="preview-box" id="preview-before-box">
+                            <span style="color: var(--text-muted); font-size: 0.8rem;">Nessuna foto selezionata</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Note aggiuntive / Descrizione</label>
+                        <textarea id="input-notes" rows="2" placeholder="Es. Accesso difficoltoso, vicino a corso d'acqua..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="margin-top: 10px;"><i class="fa-solid fa-floppy-disk"></i> Salva Segnalazione</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- VIEW 2: MAPPA INTERATTIVA -->
+        <div id="view-map" class="view-section">
+            <div class="card" style="padding: 10px;">
+                <div id="map-container"></div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: DASHBOARD IMPATTO AMBIENTALE -->
+        <div id="view-dashboard" class="view-section">
+            <div class="card">
+                <div class="card-title"><i class="fa-solid fa-chart-pie"></i> Stato delle Bonifiche Comunali</div>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title"><i class="fa-solid fa-chart-bar"></i> CO₂e (equivalente) Evitata per Tipologia (kg)</div>
+                <div class="chart-container">
+                    <canvas id="typeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 4: ARCHIVIO & ESPORTAZIONE -->
+        <div id="view-archive" class="view-section">
+            <div class="card">
+                <div class="card-title"><i class="fa-solid fa-file-export"></i> Esporta Database & Invio PEC</div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Filtra per comune, verifica la PEC istituzionale ed invia o scarica il PDF con foto:</p>
+                
+                <div class="form-group">
+                    <label>Filtra per Comune di appartenenza</label>
+                    <select id="filter-municipality" onchange="onMunicipalityFilterChange()">
+                        <option value="ALL">Tutti i Comuni</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Indirizzo PEC Istituzionale del Comune (Auto-compilato o modificabile)</label>
+                    <input type="email" id="input-pec-target" placeholder="es. protocollo@pec.comune.ct.it">
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <button class="btn btn-primary" onclick="sendPECReport()" style="background: #2563eb; flex: 1;"><i class="fa-solid fa-envelope-circle-check"></i> Invia PEC</button>
+                    <button class="btn btn-secondary" onclick="generatePDFReport()" style="background: #dc2626; color: white; flex: 1;"><i class="fa-solid fa-file-pdf"></i> Scarica PDF con Foto</button>
+                </div>
+
+                <div class="export-grid">
+                    <button class="btn btn-secondary" onclick="exportToExcel()"><i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Excel (.xlsx)</button>
+                    <button class="btn btn-secondary" onclick="exportToGeoJSON()"><i class="fa-solid fa-earth-europe" style="color: #3b82f6;"></i> GeoJSON (GIS)</button>
+                    <button class="btn btn-secondary" onclick="exportToCSV()"><i class="fa-solid fa-file-csv" style="color: #f59e0b;"></i> CSV Standard</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title"><i class="fa-solid fa-list"></i> Lista Segnalazioni Salvate</div>
+                <div id="archive-list">
+                    <!-- Elementi generati dinamicamente -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER CON LICENZA CREATIVE COMMONS -->
+    <div class="footer-license">
+        <strong>EcoSegnala</strong> sviluppata da <strong>Rosario Catania ed Elena Catania</strong>.<br>
+        Rilasciata sotto Licenza Internazionale <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.it" target="_blank" rel="noopener">Creative Commons Attribuzione - Non commerciale - Condividi allo stesso modo 4.0 (CC BY-NC-SA 4.0) <i class="fa-brands fa-creative-commons"></i><i class="fa-brands fa-creative-commons-by"></i><i class="fa-brands fa-creative-commons-nc"></i><i class="fa-brands fa-creative-commons-sa"></i></a>.<br>
+        Uso gratuito per cittadini, associazioni e pubbliche amministrazioni.
+    </div>
+
+    <!-- BOTTOM NAVBAR -->
+    <nav class="nav-bar-bottom">
+        <div class="nav-item active" onclick="switchTab('new')" id="nav-new"><i class="fa-solid fa-plus-circle"></i> Segnala</div>
+        <div class="nav-item" onclick="switchTab('map')" id="nav-map"><i class="fa-solid fa-map-location-dot"></i> Mappa</div>
+        <div class="nav-item" onclick="switchTab('dashboard')" id="nav-dashboard"><i class="fa-solid fa-chart-pie"></i> Impatto</div>
+        <div class="nav-item" onclick="switchTab('archive')" id="nav-archive"><i class="fa-solid fa-box-archive"></i> Archivio</div>
+    </nav>
+
+    <!-- MODALE FOTOCAMERA LIVE -->
+    <div id="camera-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 10px;" id="camera-modal-title">Fotocamera Live</h3>
+            <div style="width: 100%; height: 260px; background: black; border-radius: 8px; overflow: hidden; position: relative;">
+                <video id="webcam-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 12px;">
+                <button class="btn btn-primary" onclick="takeLiveSnapshot()"><i class="fa-solid fa-camera"></i> Scatta Foto</button>
+                <button class="btn btn-secondary" onclick="closeLiveCamera()"><i class="fa-solid fa-xmark"></i> Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE SELETTORE MAPPA -->
+    <div id="map-picker-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 8px;">Seleziona Punto sulla Mappa</h3>
+            <div id="picker-map-container" style="height: 300px; width: 100%; border-radius: 8px;"></div>
+            <div style="display: flex; gap: 8px; margin-top: 12px;">
+                <button class="btn btn-primary" onclick="confirmMapPicker()"><i class="fa-solid fa-check"></i> Conferma Punto</button>
+                <button class="btn btn-secondary" onclick="closeMapPickerModal()"><i class="fa-solid fa-xmark"></i> Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE AGGIORNA STATO / BONIFICA -->
+    <div id="update-status-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 10px;">Aggiorna Stato Segnalazione</h3>
+            <input type="hidden" id="update-item-id">
+            
+            <div class="form-group">
+                <label>Nuovo Stato</label>
+                <select id="update-status-select" onchange="toggleCleanPhotoInput()">
+                    <option value="segnalata">🟠 Segnalata (In attesa)</option>
+                    <option value="programmata">🟡 Programmata Pulizia</option>
+                    <option value="pulito">🟢 Bonificata / Pulita</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="clean-photo-group" style="display: none;">
+                <label>Fotografia della Bonifica (Dopo)</label>
+                <div class="camera-controls">
+                    <input type="file" id="input-clean" accept="image/*" style="display: none;" onchange="handleFileSelect(event, 'after')">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('input-clean').click()"><i class="fa-solid fa-images"></i> Scegli Foto</button>
+                    <button type="button" class="btn btn-secondary" onclick="startLiveCamera('after')"><i class="fa-solid fa-camera"></i> Live</button>
+                </div>
+                <div class="preview-box" id="preview-after-box" style="height: 120px;">
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Foto bonifica opzionale</span>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: 14px;">
+                <button class="btn btn-primary" onclick="saveStatusUpdate()"><i class="fa-solid fa-floppy-disk"></i> Aggiorna</button>
+                <button class="btn btn-secondary" onclick="closeUpdateStatusModal()"><i class="fa-solid fa-xmark"></i> Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE GUIDA & LICENZA -->
+    <div id="guide-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 10px;"><i class="fa-solid fa-book"></i> Guida all'Uso & Licenza</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 10px;">
+                <strong>EcoSegnala</strong> consente di mappare e tracciare le micro-discariche abusive sul territorio comunale calcolando la CO₂e (equivalente) evitata grazie alle bonifiche sollecitate.
+            </p>
+            <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 18px; line-height: 1.6; margin-bottom: 12px;">
+                <li><strong>GPS & Fotocamera:</strong> Richiedono la tua autorizzazione per l'accesso.</li>
+                <li><strong>Attestato di Merito:</strong> Quando la segnalazione risulta 🟢 Bonificata, compare il tasto per scaricare l'Attestato ufficiale in formato JPEG (direttamente nella galleria del dispositivo)!</li>
+            </ul>
+            <p style="font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 8px;">
+                <strong>Licenza:</strong> Creative Commons (CC BY-NC-SA 4.0) ideata da Rosario Catania ed Elena Catania.
+            </p>
+            <button class="btn btn-secondary" onclick="closeGuideModal()" style="margin-top: 12px;">Chiudi</button>
+        </div>
+    </div>
+
+    <!-- TEMPLATE ATTESTATO DI MERITO (JPEG) -->
+    <div id="certificate-template">
+        <div class="cert-header">
+            <div class="cert-badge">🏆</div>
+            <div class="cert-title">Attestato di Merito Ambientale</div>
+            <div class="cert-subtitle">EcoSegnala — Riconoscimento per la Bonifica del Territorio</div>
+        </div>
+        <div class="cert-body">
+            <p class="cert-text">Si conferisce il presente attestato di merito a:</p>
+            <div class="cert-name" id="cert-reporter-name">Nome Cognome</div>
+            <p class="cert-text">
+                per l'impegno civico e la sensibilità ambientale dimostrati nel tracciare e promuovere la completa bonifica della micro-discarica abusiva sul territorio comunale.
+            </p>
+            <div class="cert-impact-box">
+                <div style="font-size: 0.9rem; color: #047857; text-transform: uppercase;">Impatto Ambientale Risparmiato all'Ecosistema</div>
+                <div class="cert-impact-val" id="cert-co2-saved">0 kg CO₂e (equivalente) Evitate</div>
+                <div style="font-size: 0.85rem; color: #059669;" id="cert-trees-val">Pari all'azione compensativa di ~0 alberi/anno</div>
+            </div>
+        </div>
+        <div class="cert-details">
+            <div><strong>ID Bonifica:</strong> <span id="cert-id"></span></div>
+            <div><strong>Data Completamento:</strong> <span id="cert-date"></span></div>
+            <div><strong>Tipologia Rifiuto Bonificato:</strong> <span id="cert-type"></span></div>
+            <div><strong>Località / Indirizzo:</strong> <span id="cert-address"></span></div>
+        </div>
+        <div class="cert-footer">
+            <div style="font-size: 0.8rem; color: #64748b; text-align: left;">
+                Licenza Creative Commons (CC BY-NC-SA 4.0)<br>
+                EcoSegnala — Piattaforma Civica Ambientale
+            </div>
+            <div class="cert-signature">
+                <strong>Rosario Catania ed Elena Catania</strong><br>
+                <span style="font-size: 0.8rem; color: #64748b;">Ideatori EcoSegnala</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inizio Codice ShinyStat -->
+    <script src="//codice.shinystat.com/cgi-bin/getcod.cgi?USER=SS-56130387-3fbe4"></script>
+    <noscript>
+    <a href="https://www.shinystat.com/it/" target="_top">
+    <img src="//www.shinystat.com/cgi-bin/shinystat.cgi?USER=SS-56130387-3fbe4" alt="Statistiche web" style="border:0px" /></a>
+    </noscript>
+    <!-- Fine Codice ShinyStat -->
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        let reports = JSON.parse(localStorage.getItem('ecosegnala_db')) || [];
+        
+        const typeLabelsMap = {
+            plastica: 'PLASTICA',
+            vetro_lattine: 'VETRO E LATTINE',
+            metalli: 'METALLI',
+            raee: 'RAEE',
+            pneumatici: 'PNEUMATICI',
+            pericolosi: 'PERICOLOSI',
+            inerti: 'INERTI',
+            ingombranti: 'INGOMBRANTI',
+            organico: 'ORGANICO'
+        };
+
+        // Database integrato delle PEC istituzionali comunali note
+        const municipalPecDirectory = {
+            "catania": "comune.catania@pec.it",
+            "san giovanni la punta": "sangiovannilapunta@pec.it",
+            "nicolosi": "protocollo@pec.comune.nicolosi.ct.it",
+            "viagrande": "protocollo@pec.comune.viagrande.ct.it",
+            "trecastagni": "protocollo@pec.comune.trecastagni.ct.it",
+            "pedara": "protocollo@pec.comune.pedara.ct.it",
+            "aci bonaccorsi": "protocollo@pec.comune.acibonaccorsi.ct.it",
+            "aci castello": "protocollo@pec.comune.acicastello.ct.it"
+        };
+
+        const emissionFactors = {
+            plastica: 6.0,
+            vetro_lattine: 0.9,
+            metalli: 2.5,
+            raee: 12.0,
+            pneumatici: 3.5,
+            pericolosi: 8.0,
+            inerti: 0.15,
+            ingombranti: 1.8,
+            organico: 0.8
+        };
+
+        const sizeWeights = {
+            small: 5,
+            medium: 30,
+            large: 125,
+            maxi: 300
+        };
+
+        let leafletMap = null;
+        let pickerMap = null;
+        let pickerMarker = null;
+        let mapMarkers = [];
+        let currentGps = { lat: null, lng: null, accuracy: null, municipality: 'Non specificato' };
+        let tempPhotoBefore = null;
+        let tempPhotoAfter = null;
+        let mediaStream = null;
+        let cameraTarget = 'before';
+
+        let statusChartInstance = null;
+        let typeChartInstance = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const now = new Date();
+            document.getElementById('input-date').value = now.toISOString().split('T')[0];
+            document.getElementById('input-time').value = now.toTimeString().split(' ')[0].substring(0,5);
+
+            updateImpactPreview();
+            updateTotalImpactBanner();
+            updateMunicipalityFilterOptions();
+            renderArchiveList();
+            getLocation();
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+
+            document.getElementById(`view-${tabId}`).classList.add('active');
+            document.getElementById(`nav-${tabId}`).classList.add('active');
+
+            if (tabId === 'map') {
+                setTimeout(initMainMap, 100);
+            } else if (tabId === 'dashboard') {
+                setTimeout(renderCharts, 100);
+            } else if (tabId === 'archive') {
+                updateMunicipalityFilterOptions();
+                renderArchiveList();
+            }
+        }
+
+        function updateImpactPreview() {
+            const type = document.getElementById('input-type').value;
+            const size = document.getElementById('input-size').value;
+            const co2 = Math.round((emissionFactors[type] || 1) * sizeWeights[size]);
+            document.getElementById('input-co2-preview').value = `~ ${co2} kg CO₂e (equivalente)`;
+        }
+
+        function updateTotalImpactBanner() {
+            let totalSaved = 0;
+            reports.forEach(r => {
+                if (r.status === 'pulito') {
+                    totalSaved += r.co2e;
+                }
+            });
+
+            document.getElementById('total-co2-saved').innerText = `${totalSaved.toLocaleString()} kg`;
+            const trees = (totalSaved / 20).toFixed(1);
+            document.getElementById('tree-equivalent').innerText = `Pari all'azione di ~${trees} alberi/anno`;
+        }
+
+        function getLocation() {
+            const statusText = document.getElementById('gps-coords-text');
+            const accuracyText = document.getElementById('gps-accuracy-text');
+
+            if (!navigator.geolocation) {
+                accuracyText.innerText = "GPS non supportato";
+                return;
+            }
+
+            accuracyText.innerText = "Acquisizione...";
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    currentGps.lat = parseFloat(pos.coords.latitude.toFixed(6));
+                    currentGps.lng = parseFloat(pos.coords.longitude.toFixed(6));
+                    currentGps.accuracy = Math.round(pos.coords.accuracy);
+
+                    statusText.innerText = `Lat: ${currentGps.lat}, Lng: ${currentGps.lng}`;
+                    accuracyText.innerText = `Accuratezza: ±${currentGps.accuracy}m`;
+
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentGps.lat}&lon=${currentGps.lng}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data && data.address) {
+                                const mun = data.address.city || data.address.town || data.address.village || data.address.municipality || 'Non specificato';
+                                currentGps.municipality = mun;
+                                document.getElementById('input-municipality').value = mun;
+                                if (data.display_name && !document.getElementById('input-address').value) {
+                                    document.getElementById('input-address').value = data.display_name.split(',').slice(0,3).join(',');
+                                }
+                            }
+                        }).catch(() => {});
+                },
+                (err) => {
+                    accuracyText.innerText = "GPS disattivato";
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        // Funzione di compressione immagine per evitare il blocco del localStorage
+        function compressImage(fileOrBase64, callback) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                const maxDim = 800; // Ridimensiona a max 800px per sicurezza localStorage
+
+                if (width > height && width > maxDim) {
+                    height *= maxDim / width;
+                    width = maxDim;
+                } else if (height > maxDim) {
+                    width *= maxDim / height;
+                    height = maxDim;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                callback(canvas.toDataURL('image/jpeg', 0.7));
+            };
+            if (typeof fileOrBase64 === 'string') {
+                img.src = fileOrBase64;
+            } else {
+                const reader = new FileReader();
+                reader.onload = e => img.src = e.target.result;
+                reader.readAsDataURL(fileOrBase64);
+            }
+        }
+
+        function handleFileSelect(event, target) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            compressImage(file, (compressedBase64) => {
+                if (target === 'before') {
+                    tempPhotoBefore = compressedBase64;
+                    document.getElementById('preview-before-box').innerHTML = `<img src="${compressedBase64}">`;
+                } else {
+                    tempPhotoAfter = compressedBase64;
+                    document.getElementById('preview-after-box').innerHTML = `<img src="${compressedBase64}">`;
+                }
+            });
+        }
+
+        function startLiveCamera(target) {
+            cameraTarget = target;
+            document.getElementById('camera-modal').style.display = 'flex';
+            const video = document.getElementById('webcam-video');
+
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(stream => {
+                    mediaStream = stream;
+                    video.srcObject = stream;
+                })
+                .catch(err => {
+                    alert("Errore fotocamera: " + err.message);
+                    closeLiveCamera();
+                });
+        }
+
+        function takeLiveSnapshot() {
+            const video = document.getElementById('webcam-video');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const rawBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+            compressImage(rawBase64, (compressedBase64) => {
+                if (cameraTarget === 'before') {
+                    tempPhotoBefore = compressedBase64;
+                    document.getElementById('preview-before-box').innerHTML = `<img src="${compressedBase64}">`;
+                } else {
+                    tempPhotoAfter = compressedBase64;
+                    document.getElementById('preview-after-box').innerHTML = `<img src="${compressedBase64}">`;
+                }
+            });
+
+            closeLiveCamera();
+        }
+
+        function closeLiveCamera() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            document.getElementById('camera-modal').style.display = 'none';
+        }
+
+        function saveReport(event) {
+            event.preventDefault();
+
+            if (!currentGps.lat || !currentGps.lng) {
+                if (!confirm("Coordinate GPS non rilevate. Salvare comunque?")) return;
+            }
+
+            const type = document.getElementById('input-type').value;
+            const size = document.getElementById('input-size').value;
+            const co2e = Math.round((emissionFactors[type] || 1) * sizeWeights[size]);
+
+            const newReport = {
+                id: Date.now().toString(),
+                reporter: document.getElementById('input-reporter').value,
+                date: document.getElementById('input-date').value,
+                time: document.getElementById('input-time').value,
+                lat: currentGps.lat || 0,
+                lng: currentGps.lng || 0,
+                accuracy: currentGps.accuracy || 0,
+                municipality: document.getElementById('input-municipality').value || 'Non specificato',
+                address: document.getElementById('input-address').value || 'Indirizzo non specificato',
+                type: type,
+                size: size,
+                co2e: co2e,
+                notes: document.getElementById('input-notes').value,
+                status: 'segnalata',
+                photoBefore: tempPhotoBefore || null,
+                photoAfter: null
+            };
+
+            try {
+                reports.unshift(newReport);
+                localStorage.setItem('ecosegnala_db', JSON.stringify(reports));
+            } catch (e) {
+                alert("Memoria locale esaurita o errore di salvataggio. Riprova con un'immagine più leggera.");
+                reports.shift();
+                return;
+            }
+
+            alert("Segnalazione salvata con successo!");
+            
+            document.getElementById('report-form').reset();
+            tempPhotoBefore = null;
+            document.getElementById('input-photo').value = '';
+            document.getElementById('preview-before-box').innerHTML = '<span style="color: var(--text-muted); font-size: 0.8rem;">Nessuna foto selezionata</span>';
+            
+            const now = new Date();
+            document.getElementById('input-date').value = now.toISOString().split('T')[0];
+            document.getElementById('input-time').value = now.toTimeString().split(' ')[0].substring(0,5);
+
+            updateTotalImpactBanner();
+            updateMunicipalityFilterOptions();
+            renderArchiveList();
+            switchTab('map');
+        }
+
+        function initMainMap() {
+            if (!leafletMap) {
+                leafletMap = L.map('map-container').setView([37.50, 15.08], 11);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(leafletMap);
+            }
+
+            mapMarkers.forEach(m => leafletMap.removeLayer(m));
+            mapMarkers = [];
+            const bounds = [];
+
+            reports.forEach(r => {
+                if (r.lat && r.lng) {
+                    let color = '#f97316';
+                    if (r.status === 'programmata') color = '#eab308';
+                    if (r.status === 'pulito') color = '#10b981';
+
+                    const customIcon = L.divIcon({
+                        className: 'custom-map-pin',
+                        html: `<div style="background-color: ${color}; width: 18px; height: 18px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.5);"></div>`,
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9]
+                    });
+
+                    const marker = L.marker([r.lat, r.lng], { icon: customIcon }).addTo(leafletMap);
+                    let popupContent = `<div style="color: #000; font-size: 0.8rem;"><strong>${(typeLabelsMap[r.type] || r.type).toUpperCase()}</strong><br>${r.address}<br><span style="color: ${color}; font-weight: bold;">${r.status.toUpperCase()}</span></div>`;
+                    marker.bindPopup(popupContent);
+                    mapMarkers.push(marker);
+                    bounds.push([r.lat, r.lng]);
+                }
+            });
+
+            if (bounds.length > 0) leafletMap.fitBounds(bounds, { padding: [30, 30] });
+        }
+
+        function openMapPickerModal() {
+            document.getElementById('map-picker-modal').style.display = 'flex';
+            setTimeout(() => {
+                if (!pickerMap) {
+                    pickerMap = L.map('picker-map-container').setView([currentGps.lat || 37.50, currentGps.lng || 15.08], 12);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(pickerMap);
+                    pickerMap.on('click', (e) => {
+                        const { lat, lng } = e.latlng;
+                        if (pickerMarker) pickerMap.removeLayer(pickerMarker);
+                        pickerMarker = L.marker([lat, lng]).addTo(pickerMap);
+                        pickerMarker.tempLatLng = { lat: parseFloat(lat.toFixed(6)), lng: parseFloat(lng.toFixed(6)) };
+                    });
+                } else {
+                    pickerMap.invalidateSize();
+                }
+            }, 200);
+        }
+
+        function confirmMapPicker() {
+            if (pickerMarker && pickerMarker.tempLatLng) {
+                currentGps.lat = pickerMarker.tempLatLng.lat;
+                currentGps.lng = pickerMarker.tempLatLng.lng;
+                currentGps.accuracy = "Manuale";
+                document.getElementById('gps-coords-text').innerText = `Lat: ${currentGps.lat}, Lng: ${currentGps.lng}`;
+                document.getElementById('gps-accuracy-text').innerText = `Manuale`;
+
+                // Esegui la geocodifica inversa per ricavare indirizzo e comune
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentGps.lat}&lon=${currentGps.lng}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data && data.address) {
+                            const mun = data.address.city || data.address.town || data.address.village || data.address.municipality || 'Non specificato';
+                            currentGps.municipality = mun;
+                            document.getElementById('input-municipality').value = mun;
+                            if (data.display_name) {
+                                document.getElementById('input-address').value = data.display_name.split(',').slice(0,3).join(',');
+                            }
+                        }
+                    }).catch(() => {});
+            }
+            closeMapPickerModal();
+        }
+
+        function closeMapPickerModal() { document.getElementById('map-picker-modal').style.display = 'none'; }
+
+        function updateMunicipalityFilterOptions() {
+            const select = document.getElementById('filter-municipality');
+            if (!select) return;
+            const currentVal = select.value;
+            
+            const municipalities = [...new Set(reports.map(r => r.municipality || 'Non specificato'))].sort();
+            
+            let html = '<option value="ALL">Tutti i Comuni</option>';
+            municipalities.forEach(m => {
+                html += `<option value="${m}">${m}</option>`;
+            });
+            select.innerHTML = html;
+            select.value = municipalities.includes(currentVal) ? currentVal : 'ALL';
+            onMunicipalityFilterChange();
+        }
+
+        function onMunicipalityFilterChange() {
+            const filterMun = document.getElementById('filter-municipality').value;
+            const pecInput = document.getElementById('input-pec-target');
+            if (!pecInput) return;
+
+            if (filterMun === 'ALL') {
+                pecInput.value = '';
+                pecInput.placeholder = 'Seleziona un Comune per caricare la PEC istituzionale';
+            } else {
+                const key = filterMun.toLowerCase().trim();
+                const foundPec = municipalPecDirectory[key] || '';
+                pecInput.value = foundPec;
+                pecInput.placeholder = foundPec ? '' : 'PEC non in elenco, inseriscila manualmente';
+            }
+        }
+
+        function renderCharts() {
+            let countSegnalati = 0, countProgrammati = 0, countPuliti = 0;
+            const typeCo2Map = {};
+
+            reports.forEach(r => {
+                if (r.status === 'segnalata') countSegnalati++;
+                if (r.status === 'programmata') countProgrammati++;
+                if (r.status === 'pulito') {
+                    countPuliti++;
+                    const key = r.type;
+                    typeCo2Map[key] = (typeCo2Map[key] || 0) + r.co2e;
+                }
+            });
+
+            if (statusChartInstance) statusChartInstance.destroy();
+            if (typeChartInstance) typeChartInstance.destroy();
+
+            const ctx1 = document.getElementById('statusChart').getContext('2d');
+            statusChartInstance = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: [
+                        `Segnalate (${countSegnalati})`, 
+                        `In Programmazione (${countProgrammati})`, 
+                        `Bonificate (${countPuliti})`
+                    ],
+                    datasets: [{ 
+                        data: [countSegnalati, countProgrammati, countPuliti], 
+                        backgroundColor: ['#f97316', '#eab308', '#10b981'], 
+                        borderWidth: 0 
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { 
+                            labels: { color: '#f8fafc', font: { size: 11 } } 
+                        } 
+                    } 
+                }
+            });
+
+            const ctx2 = document.getElementById('typeChart').getContext('2d');
+            const labels = Object.keys(typeCo2Map).map(k => (typeLabelsMap[k] || k).toUpperCase());
+            const values = Object.values(typeCo2Map);
+
+            typeChartInstance = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: labels.length > 0 ? labels : ['NESSUNA BONIFICA'],
+                    datasets: [{ label: 'kg CO₂e (equivalente) Evitata', data: values.length > 0 ? values : [0], backgroundColor: '#10b981', borderRadius: 6 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } }, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function renderArchiveList() {
+            const container = document.getElementById('archive-list');
+            const filterMun = document.getElementById('filter-municipality') ? document.getElementById('filter-municipality').value : 'ALL';
+
+            const filteredReports = reports.filter(r => {
+                if (filterMun === 'ALL') return true;
+                return (r.municipality || 'Non specificato') === filterMun;
+            });
+
+            if (filteredReports.length === 0) {
+                container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 20px;">Nessuna segnalazione trovata per il filtro selezionato.</p>`;
+                return;
+            }
+
+            container.innerHTML = filteredReports.map(r => {
+                let statusBadge = `<span class="badge-status badge-segnalata">🟠 Segnalata</span>`;
+                if (r.status === 'programmata') statusBadge = `<span class="badge-status badge-programmata">🟡 Programmata</span>`;
+                if (r.status === 'pulito') statusBadge = `<span class="badge-status badge-pulito">🟢 Bonificata</span>`;
+
+                const typeDisplay = (typeLabelsMap[r.type] || r.type).toUpperCase();
+                const isClean = (r.status === 'pulito');
+
+                return `
+                    <div class="list-item">
+                        <div class="list-header">
+                            <div>
+                                <strong>${typeDisplay}</strong> (${r.size})
+                                <div style="font-size: 0.75rem; color: var(--accent);">Comune: <strong>${r.municipality || 'Non specificato'}</strong></div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">Segnalatore: <strong>${r.reporter || 'N.D.'}</strong></div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">${r.date} ${r.time} — ${r.address}</div>
+                            </div>
+                            ${statusBadge}
+                        </div>
+
+                        <div style="font-size: 0.8rem; color: var(--accent);">Impatto: ~${r.co2e} kg CO₂e (equivalente)</div>
+                        ${r.notes ? `<div style="font-size: 0.8rem; color: var(--text-main);"><em>"${r.notes}"</em></div>` : ''}
+
+                        <div class="item-photos">
+                            ${r.photoBefore ? `<div class="item-photo-box"><img src="${r.photoBefore}"><span class="photo-tag">PRIMA</span></div>` : ''}
+                            ${r.photoAfter ? `<div class="item-photo-box"><img src="${r.photoAfter}"><span class="photo-tag" style="background:#10b981;">DOPO</span></div>` : ''}
+                        </div>
+
+                        <div style="display: flex; gap: 6px; margin-top: 8px;">
+                            <button class="btn btn-secondary" style="padding: 6px; font-size: 0.75rem;" onclick="openUpdateStatusModal('${r.id}')"><i class="fa-solid fa-pen"></i> Stato</button>
+                            ${isClean ? `<button class="btn btn-secondary" style="padding: 6px; font-size: 0.75rem; background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid #10b981;" onclick="generateCertificateJPEG('${r.id}')"><i class="fa-solid fa-image"></i> Attestato JPEG</button>` : ''}
+                            <button class="btn btn-secondary" style="padding: 6px; font-size: 0.75rem; color: #ef4444;" onclick="deleteReport('${r.id}')"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function sendPECReport() {
+            const filterMun = document.getElementById('filter-municipality').value;
+            if (filterMun === 'ALL') {
+                alert("Per favore, seleziona prima uno specifico Comune dal menu a tendina per inviare la PEC.");
+                return;
+            }
+
+            const municipalityReports = reports.filter(r => (r.municipality || 'Non specificato') === filterMun);
+            if (municipalityReports.length === 0) {
+                alert("Nessuna segnalazione presente per il Comune selezionato.");
+                return;
+            }
+
+            const pecTarget = document.getElementById('input-pec-target').value.trim();
+            const subject = encodeURIComponent(`Segnalazione Micro-Discariche Abusive - Comune di ${filterMun} (EcoSegnala)`);
+            
+            let bodyText = `Spett.le Amministrazione Comunale di ${filterMun},\n`;
+            bodyText += `Spett.le Corpo di Polizia Municipale / Ufficio Ambiente,\n\n`;
+            bodyText += `Con la presente, in qualità di cittadino attivo tramite la piattaforma civica EcoSegnala, si trasmette l'elenco delle segnalazioni relative a micro-discariche abusive presenti sul Vostro territorio:\n\n`;
+            
+            municipalityReports.forEach((r, index) => {
+                bodyText += `--------------------------------------------------\n`;
+                bodyText += `SEGNALAZIONE #${index + 1} (ID: ${r.id})\n`;
+                bodyText += `- Data/Ora: ${r.date} ore ${r.time}\n`;
+                bodyText += `- Indirizzo / Località: ${r.address}\n`;
+                bodyText += `- Coordinate GPS: Lat ${r.lat}, Lng ${r.lng} (https://www.openstreetmap.org/?mlat=${r.lat}&mlon=${r.lng}#map=18/${r.lat}/${r.lng})\n`;
+                bodyText += `- Tipologia Rifiuto: ${(typeLabelsMap[r.type] || r.type).toUpperCase()}\n`;
+                bodyText += `- Quantità/Dimensione: ${r.size.toUpperCase()} (~${r.co2e} kg CO₂e equivalente stimata)\n`;
+                bodyText += `- Stato Attuale: ${r.status.toUpperCase()}\n`;
+                if (r.notes) bodyText += `- Note: ${r.notes}\n`;
+                bodyText += `\n`;
+            });
+
+            bodyText += `Si richiede cortesemente un riscontro in merito alla programmazione degli interventi di rimozione e bonifica dei siti sopraindicati.\n\n`;
+            bodyText += `Distinti saluti,\nPiattaforma Civica EcoSegnala (Ideatori: Rosario Catania ed Elena Catania)`;
+
+            const mailtoLink = `mailto:${pecTarget}?subject=${subject}&body=${encodeURIComponent(bodyText)}`;
+            window.location.href = mailtoLink;
+        }
+
+        // Funzione per generare il report PDF formattato con anteprime fotografiche tramite jsPDF
+        function generatePDFReport() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const filterMun = document.getElementById('filter-municipality').value;
+            const municipalityReports = reports.filter(r => filterMun === 'ALL' || (r.municipality || 'Non specificato') === filterMun);
+
+            if (municipalityReports.length === 0) {
+                alert("Nessuna segnalazione disponibile per generare il report PDF.");
+                return;
+            }
+
+            // Intestazione del PDF
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(16);
+            doc.setTextColor(4, 120, 87);
+            doc.text("ECOSEGNALA — REPORT ISTITUZIONALE", 14, 20);
+
+            doc.setFontSize(10);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Comune di riferimento: ${filterMun.toUpperCase()}`, 14, 28);
+            doc.text(`Data emissione: ${new Date().toLocaleDateString('it-IT')}`, 14, 34);
+
+            let y = 45;
+
+            municipalityReports.forEach((r, index) => {
+                const requiredHeight = r.photoBefore ? 65 : 35;
+                if (y + requiredHeight > 275) {
+                    doc.addPage();
+                    y = 20;
+                }
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(10);
+                doc.setTextColor(30, 41, 59);
+                doc.text(`Segnalazione #${index + 1} (ID: ${r.id}) - Stato: ${r.status.toUpperCase()}`, 14, y);
+                y += 5;
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(9);
+                doc.text(`Data: ${r.date} ore ${r.time} | Segnalatore: ${r.reporter || 'N.D.'}`, 14, y);
+                y += 5;
+                doc.text(`Indirizzo: ${r.address}`, 14, y);
+                y += 5;
+                doc.text(`Tipologia: ${(typeLabelsMap[r.type] || r.type).toUpperCase()} (${r.size.toUpperCase()}) - Impatto: ~${r.co2e} kg CO2e eq.`, 14, y);
+                y += 5;
+                if (r.notes) {
+                    doc.text(`Note: ${r.notes}`, 14, y);
+                    y += 5;
+                }
+
+                // Inserimento della miniatura della foto "Prima" se presente
+                if (r.photoBefore) {
+                    try {
+                        doc.addImage(r.photoBefore, 'JPEG', 14, y, 35, 26);
+                        doc.setFontSize(7);
+                        doc.setTextColor(100, 116, 139);
+                        doc.text("Foto Rilevamento (Prima)", 14, y + 29);
+                        y += 32;
+                    } catch (e) {
+                        y += 5;
+                    }
+                } else {
+                    y += 4;
+                }
+
+                // Linea separatrice sottile tra le segnalazioni
+                doc.setDrawColor(203, 213, 225);
+                doc.line(14, y, 196, y);
+                y += 8;
+            });
+
+            // Footer finale
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184);
+            doc.text("Documento generato automaticamente tramite la piattaforma civica EcoSegnala (Ideatori: Rosario Catania ed Elena Catania)", 14, 285);
+
+            // Salvataggio file
+            doc.save(`Report_EcoSegnala_${filterMun}.pdf`);
+        }
+
+        function openUpdateStatusModal(id) {
+            const report = reports.find(r => r.id === id);
+            if (!report) return;
+            document.getElementById('update-item-id').value = id;
+            document.getElementById('update-status-select').value = report.status;
+            toggleCleanPhotoInput();
+            document.getElementById('update-status-modal').style.display = 'flex';
+        }
+
+        function toggleCleanPhotoInput() {
+            const status = document.getElementById('update-status-select').value;
+            document.getElementById('clean-photo-group').style.display = (status === 'pulito') ? 'block' : 'none';
+        }
+
+        function saveStatusUpdate() {
+            const id = document.getElementById('update-item-id').value;
+            const report = reports.find(r => r.id === id);
+            if (!report) return;
+
+            report.status = document.getElementById('update-status-select').value;
+            if (tempPhotoAfter) report.photoAfter = tempPhotoAfter;
+
+            try {
+                localStorage.setItem('ecosegnala_db', JSON.stringify(reports));
+            } catch (e) {
+                alert("Errore di salvataggio. Memoria piena.");
+                return;
+            }
+
+            tempPhotoAfter = null;
+            closeUpdateStatusModal();
+            updateTotalImpactBanner();
+            renderArchiveList();
+        }
+
+        function closeUpdateStatusModal() { document.getElementById('update-status-modal').style.display = 'none'; }
+
+        function deleteReport(id) {
+            if (confirm("Eliminare questa segnalazione?")) {
+                reports = reports.filter(r => r.id !== id);
+                localStorage.setItem('ecosegnala_db', JSON.stringify(reports));
+                updateTotalImpactBanner();
+                updateMunicipalityFilterOptions();
+                renderArchiveList();
+            }
+        }
+
+        // Generazione Attestato in formato JPEG (scaricamento diretto in galleria)
+        function generateCertificateJPEG(id) {
+            const r = reports.find(item => item.id === id);
+            if (!r || r.status !== 'pulito') return;
+
+            const trees = (r.co2e / 20).toFixed(1);
+
+            document.getElementById('cert-reporter-name').innerText = r.reporter || 'Cittadino Virtuoso';
+            document.getElementById('cert-co2-saved').innerText = `${r.co2e} kg CO₂e (equivalente) Evitate`;
+            document.getElementById('cert-trees-val').innerText = `Pari all'azione compensativa di ~${trees} alberi/anno`;
+            document.getElementById('cert-id').innerText = r.id;
+            document.getElementById('cert-date').innerText = `${r.date} (ore ${r.time})`;
+            document.getElementById('cert-type').innerText = (typeLabelsMap[r.type] || r.type).toUpperCase();
+            document.getElementById('cert-address').innerText = r.address;
+
+            const element = document.getElementById('certificate-template');
+            element.style.display = 'block';
+
+            html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#fffdf5'
+            }).then(canvas => {
+                element.style.display = 'none';
+
+                const imageURI = canvas.toDataURL('image/jpeg', 0.95);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = imageURI;
+                downloadLink.download = `Attestato_Bonifica_${r.id}.jpg`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                downloadLink.remove();
+            }).catch(err => {
+                element.style.display = 'none';
+                alert("Errore nella generazione dell'immagine JPEG: " + err.message);
+            });
+        }
+
+        function exportToExcel() {
+            if (reports.length === 0) { alert("Nessun dato."); return; }
+            const exportData = reports.map(r => ({
+                ID: r.id, Comune: r.municipality, Segnalatore: r.reporter, Data: r.date, Ora: r.time, Stato: r.status, Tipologia: typeLabelsMap[r.type] || r.type, Dimensione: r.size, CO2e_kg: r.co2e, Latitudine: r.lat, Longitudine: r.lng, Indirizzo: r.address, Note: r.notes
+            }));
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Segnalazioni");
+            XLSX.writeFile(workbook, `ecosegnala_db_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        function exportToGeoJSON() {
+            if (reports.length === 0) { alert("Nessun dato."); return; }
+            const geojson = {
+                type: "FeatureCollection",
+                features: reports.map(r => ({
+                    type: "Feature",
+                    geometry: { type: "Point", coordinates: [r.lng, r.lat] },
+                    properties: { id: r.id, comune: r.municipality, segnalatore: r.reporter, date: r.date, time: r.time, status: r.status, type: typeLabelsMap[r.type] || r.type, size: r.size, co2e_kg: r.co2e, address: r.address, notes: r.notes }
+                }))
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `segnalazioni_${new Date().toISOString().split('T')[0]}.geojson`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function exportToCSV() {
+            if (reports.length === 0) { alert("Nessun dato."); return; }
+            const headers = ["ID", "Comune", "Segnalatore", "Data", "Ora", "Stato", "Tipologia", "CO2e_kg", "Latitudine", "Longitudine", "Indirizzo"];
+            const rows = reports.map(r => [r.id, `"${r.municipality || ''}"`, `"${r.reporter || ''}"`, r.date, r.time, r.status, typeLabelsMap[r.type] || r.type, r.co2e, r.lat, r.lng, `"${r.address}"`]);
+            let csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+            const link = document.createElement("a");
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", `segnalazioni_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
+        function openGuideModal() { document.getElementById('guide-modal').style.display = 'flex'; }
+        function closeGuideModal() { document.getElementById('guide-modal').style.display = 'none'; }
+    </script>
+</body>
+</html>
